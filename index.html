@@ -1,13 +1,579 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Web Page</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Flashcard Quiz App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.3);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: white;
+            transition: width 0.3s ease;
+        }
+
+        .question-container {
+            padding: 30px;
+        }
+
+        .question-number {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .question-text {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .choice-button {
+            background: #f7f7f7;
+            border: 2px solid #e0e0e0;
+            padding: 18px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .choice-button:hover:not(.disabled) {
+            background: #f0f0ff;
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+
+        .choice-button.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .choice-button.correct {
+            background: #4caf50;
+            color: white;
+            border-color: #4caf50;
+        }
+
+        .choice-button.incorrect {
+            background: #f44336;
+            color: white;
+            border-color: #f44336;
+        }
+
+        .choice-button.disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+
+        .choice-label {
+            font-weight: 600;
+            min-width: 30px;
+        }
+
+        .explanation {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 12px;
+            border-left: 4px solid #4caf50;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .explanation.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .explanation-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2e7d32;
+        }
+
+        .explanation.error .explanation-title {
+            color: #c62828;
+        }
+
+        .controls {
+            padding: 20px 30px 30px;
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .stats {
+            padding: 20px 30px;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .stat-item {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .start-screen, .end-screen {
+            padding: 60px 30px;
+            text-align: center;
+        }
+
+        .start-screen h2, .end-screen h2 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .start-screen p, .end-screen p {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .score-display {
+            font-size: 48px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .question-text {
+                font-size: 18px;
+            }
+            
+            .choice-button {
+                padding: 15px;
+                font-size: 15px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to My Web Page</h1>
-    <p>This is a simple web page.</p>
+    <div class="app-container">
+        <div id="startScreen" class="start-screen">
+            <h2>Welcome to Flashcard Quiz!</h2>
+            <p>Test your knowledge with randomized multiple-choice questions. Choose your answer and get instant feedback!</p>
+            <button class="btn btn-primary" onclick="startQuiz()">Start Quiz</button>
+        </div>
+
+        <div id="quizScreen" style="display: none;">
+            <div class="header">
+                <h1>Flashcard Quiz</h1>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+            </div>
+
+            <div class="question-container">
+                <div class="question-number" id="questionNumber"></div>
+                <div class="question-text" id="questionText"></div>
+                <div class="choices-container" id="choicesContainer"></div>
+                <div id="explanation" style="display: none;"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="resetQuiz()">Reset</button>
+                <button class="btn btn-primary" id="nextButton" onclick="nextQuestion()" style="display: none;">Next Question</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="correctCount">0</div>
+                    <div class="stat-label">Correct</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="scorePercent">0%</div>
+                    <div class="stat-label">Score</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="endScreen" class="end-screen" style="display: none;">
+            <h2>Quiz Complete!</h2>
+            <div class="score-display" id="finalScore"></div>
+            <p id="finalMessage"></p>
+            <button class="btn btn-primary" onclick="resetQuiz()">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Sample questions - Replace this with your actual questions
+        const questionsData = {
+            questions: [
+                {
+                    id: 1,
+                    question: "What is the capital of France?",
+                    choices: [
+                        {id: "a", text: "London"},
+                        {id: "b", text: "Paris"},
+                        {id: "c", text: "Berlin"},
+                        {id: "d", text: "Madrid"}
+                    ],
+                    correctAnswer: "b",
+                    explanation: "Paris is the capital and largest city of France, known for landmarks like the Eiffel Tower and Louvre Museum."
+                },
+                {
+                    id: 2,
+                    question: "Which planet is known as the Red Planet?",
+                    choices: [
+                        {id: "a", text: "Venus"},
+                        {id: "b", text: "Mars"},
+                        {id: "c", text: "Jupiter"},
+                        {id: "d", text: "Saturn"}
+                    ],
+                    correctAnswer: "b",
+                    explanation: "Mars is called the Red Planet due to iron oxide (rust) on its surface, which gives it a reddish appearance."
+                },
+                {
+                    id: 3,
+                    question: "What is the largest ocean on Earth?",
+                    choices: [
+                        {id: "a", text: "Atlantic Ocean"},
+                        {id: "b", text: "Indian Ocean"},
+                        {id: "c", text: "Arctic Ocean"},
+                        {id: "d", text: "Pacific Ocean"}
+                    ],
+                    correctAnswer: "d",
+                    explanation: "The Pacific Ocean is the largest ocean, covering more than 63 million square miles and containing more than half of Earth's water."
+                },
+                {
+                    id: 4,
+                    question: "Who painted the Mona Lisa?",
+                    choices: [
+                        {id: "a", text: "Vincent van Gogh"},
+                        {id: "b", text: "Leonardo da Vinci"},
+                        {id: "c", text: "Pablo Picasso"},
+                        {id: "d", text: "Michelangelo"}
+                    ],
+                    correctAnswer: "b",
+                    explanation: "Leonardo da Vinci painted the Mona Lisa between 1503 and 1519. It's one of the most famous paintings in the world."
+                },
+                {
+                    id: 5,
+                    question: "What is the chemical symbol for gold?",
+                    choices: [
+                        {id: "a", text: "Go"},
+                        {id: "b", text: "Gd"},
+                        {id: "c", text: "Au"},
+                        {id: "d", text: "Ag"}
+                    ],
+                    correctAnswer: "c",
+                    explanation: "Au is the chemical symbol for gold, derived from the Latin word 'aurum' meaning gold."
+                }
+            ]
+        };
+
+        let currentQuestionIndex = 0;
+        let questions = [];
+        let correctAnswers = 0;
+        let totalAnswered = 0;
+        let hasAnswered = false;
+
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        function startQuiz() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('quizScreen').style.display = 'block';
+            document.getElementById('endScreen').style.display = 'none';
+            
+            // Shuffle questions
+            questions = shuffleArray(questionsData.questions);
+            currentQuestionIndex = 0;
+            correctAnswers = 0;
+            totalAnswered = 0;
+            
+            displayQuestion();
+        }
+
+        function displayQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                endQuiz();
+                return;
+            }
+
+            hasAnswered = false;
+            const question = questions[currentQuestionIndex];
+            
+            // Update question number and text
+            document.getElementById('questionNumber').textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            document.getElementById('questionText').textContent = question.question;
+            
+            // Update progress bar
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            // Clear and populate choices
+            const choicesContainer = document.getElementById('choicesContainer');
+            choicesContainer.innerHTML = '';
+            
+            question.choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = 'choice-button';
+                button.innerHTML = `
+                    <span class="choice-label">${choice.id.toUpperCase()}.</span>
+                    <span>${choice.text}</span>
+                `;
+                button.onclick = () => selectAnswer(choice.id);
+                choicesContainer.appendChild(button);
+            });
+            
+            // Hide explanation and next button
+            document.getElementById('explanation').style.display = 'none';
+            document.getElementById('nextButton').style.display = 'none';
+        }
+
+        function selectAnswer(choiceId) {
+            if (hasAnswered) return;
+            
+            hasAnswered = true;
+            totalAnswered++;
+            
+            const question = questions[currentQuestionIndex];
+            const isCorrect = choiceId === question.correctAnswer;
+            
+            if (isCorrect) {
+                correctAnswers++;
+            }
+            
+            // Update choice buttons
+            const buttons = document.querySelectorAll('.choice-button');
+            buttons.forEach((button, index) => {
+                button.classList.add('disabled');
+                const choice = question.choices[index];
+                
+                if (choice.id === choiceId) {
+                    button.classList.add('selected');
+                    if (isCorrect) {
+                        button.classList.add('correct');
+                    } else {
+                        button.classList.add('incorrect');
+                    }
+                }
+                
+                if (choice.id === question.correctAnswer) {
+                    button.classList.add('correct');
+                }
+            });
+            
+            // Show explanation
+            const explanationDiv = document.getElementById('explanation');
+            explanationDiv.style.display = 'block';
+            explanationDiv.className = isCorrect ? 'explanation' : 'explanation error';
+            explanationDiv.innerHTML = `
+                <div class="explanation-title">${isCorrect ? '✓ Correct!' : '✗ Incorrect'}</div>
+                <div>${question.explanation}</div>
+            `;
+            
+            // Update stats
+            updateStats();
+            
+            // Show next button
+            document.getElementById('nextButton').style.display = 'block';
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+
+        function updateStats() {
+            document.getElementById('correctCount').textContent = correctAnswers;
+            document.getElementById('totalCount').textContent = totalAnswered;
+            const percentage = totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0;
+            document.getElementById('scorePercent').textContent = percentage + '%';
+        }
+
+        function endQuiz() {
+            document.getElementById('quizScreen').style.display = 'none';
+            document.getElementById('endScreen').style.display = 'block';
+            
+            const percentage = Math.round((correctAnswers / questions.length) * 100);
+            document.getElementById('finalScore').textContent = percentage + '%';
+            
+            let message = '';
+            if (percentage >= 90) {
+                message = 'Excellent work! You have mastered this material!';
+            } else if (percentage >= 70) {
+                message = 'Good job! You have a solid understanding.';
+            } else if (percentage >= 50) {
+                message = 'Not bad! Keep practicing to improve.';
+            } else {
+                message = 'Keep studying! Practice makes perfect.';
+            }
+            
+            document.getElementById('finalMessage').textContent = message;
+        }
+
+        function resetQuiz() {
+            startQuiz();
+        }
+
+        // Save progress to localStorage
+        function saveProgress() {
+            const progress = {
+                currentQuestionIndex,
+                correctAnswers,
+                totalAnswered,
+                questions: questions.map(q => q.id)
+            };
+            localStorage.setItem('flashcardProgress', JSON.stringify(progress));
+        }
+
+        // Load progress from localStorage
+        function loadProgress() {
+            const saved = localStorage.getItem('flashcardProgress');
+            if (saved) {
+                const progress = JSON.parse(saved);
+                // Implement restore logic here if needed
+            }
+        }
+    </script>
 </body>
 </html>
