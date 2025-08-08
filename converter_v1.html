@@ -397,9 +397,8 @@
             const lines = markdown.split('\n');
             const questions = [];
             let currentQuestion = null;
-            let currentChoices = [];
+            let currentAnswers = [];
             let lastCorrectAnswer = null;
-            let explanations = [];
             
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
@@ -408,15 +407,7 @@
                 if (line.match(/^#\s+\d+\./)) {
                     // Save previous question if exists
                     if (currentQuestion) {
-                        currentQuestion.choices = currentChoices;
-                        // Set explanation as array or single string based on count
-                        if (explanations.length === 0) {
-                            currentQuestion.explanation = "";
-                        } else if (explanations.length === 1) {
-                            currentQuestion.explanation = explanations[0];
-                        } else {
-                            currentQuestion.explanation = explanations;
-                        }
+                        currentQuestion.answers = currentAnswers;
                         questions.push(currentQuestion);
                     }
                     
@@ -424,26 +415,27 @@
                     const match = line.match(/^#\s+(\d+)\.\s*(.+)/);
                     if (match) {
                         const [, number, text] = match;
-                        
-                        // Remove bilingual parts in parentheses for cleaner question text
-                        let cleanText = text.trim();
-                        // Check if the entire text is bilingual format
-                        const bilingualMatch = text.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
-                        if (bilingualMatch) {
-                            // Use the English part (first part before parentheses)
-                            cleanText = bilingualMatch[1].trim();
-                        }
-                        
                         currentQuestion = {
                             id: parseInt(number),
-                            question: cleanText,
-                            choices: [],
+                            questionNumber: parseInt(number),
+                            question: text.trim(),
+                            questionEnglish: '',
+                            questionVietnamese: '',
+                            answers: [],
                             correctAnswers: [],
-                            explanation: ""
+                            explanations: {}
                         };
                         
-                        currentChoices = [];
-                        explanations = [];
+                        // Parse bilingual text if present
+                        const bilingualMatch = text.match(/(.+?)\s*\(\s*(.+?)\s*\)/);
+                        if (bilingualMatch) {
+                            currentQuestion.questionEnglish = bilingualMatch[1].trim();
+                            currentQuestion.questionVietnamese = bilingualMatch[2].trim();
+                        } else {
+                            currentQuestion.questionEnglish = text.trim();
+                        }
+                        
+                        currentAnswers = [];
                         lastCorrectAnswer = null;
                     }
                 }
@@ -453,21 +445,26 @@
                     if (match && currentQuestion) {
                         const [, letter, text] = match;
                         const isCorrect = text.includes('[CORRECT]');
-                        let cleanText = text.replace(/\s*\[CORRECT\]\s*$/, '').trim();
+                        const cleanText = text.replace(/\s*\[CORRECT\]\s*$/, '').trim();
                         
-                        // Remove bilingual parts in parentheses for cleaner choice text
-                        const bilingualMatch = cleanText.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
-                        if (bilingualMatch) {
-                            // Use the English part (first part before parentheses)
-                            cleanText = bilingualMatch[1].trim();
-                        }
-                        
-                        const choice = {
+                        const answer = {
                             id: letter,
-                            text: cleanText
+                            text: cleanText,
+                            textEnglish: '',
+                            textVietnamese: '',
+                            isCorrect: isCorrect
                         };
                         
-                        currentChoices.push(choice);
+                        // Parse bilingual text if present
+                        const bilingualMatch = cleanText.match(/(.+?)\s*\(\s*(.+?)\s*\)/);
+                        if (bilingualMatch) {
+                            answer.textEnglish = bilingualMatch[1].trim();
+                            answer.textVietnamese = bilingualMatch[2].trim();
+                        } else {
+                            answer.textEnglish = cleanText;
+                        }
+                        
+                        currentAnswers.push(answer);
                         
                         if (isCorrect) {
                             currentQuestion.correctAnswers.push(letter);
@@ -478,13 +475,7 @@
                 // Check if it's an explanation (line after correct answer, not starting with -, #, or being empty)
                 else if (lastCorrectAnswer && line && !line.startsWith('-') && !line.startsWith('#')) {
                     if (currentQuestion) {
-                        // Remove bilingual parts if present
-                        let cleanExplanation = line.trim();
-                        const bilingualMatch = line.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
-                        if (bilingualMatch) {
-                            cleanExplanation = bilingualMatch[1].trim();
-                        }
-                        explanations.push(cleanExplanation);
+                        currentQuestion.explanations[lastCorrectAnswer] = line.trim();
                         lastCorrectAnswer = null; // Reset after capturing explanation
                     }
                 }
@@ -492,15 +483,7 @@
             
             // Don't forget the last question
             if (currentQuestion) {
-                currentQuestion.choices = currentChoices;
-                // Set explanation as array or single string based on count
-                if (explanations.length === 0) {
-                    currentQuestion.explanation = "";
-                } else if (explanations.length === 1) {
-                    currentQuestion.explanation = explanations[0];
-                } else {
-                    currentQuestion.explanation = explanations;
-                }
+                currentQuestion.answers = currentAnswers;
                 questions.push(currentQuestion);
             }
             
@@ -513,8 +496,8 @@
             let multipleCorrect = 0;
             
             parsedQuestions.forEach(q => {
-                totalAnswers += q.choices.length;
-                if (q.explanation && (typeof q.explanation === 'string' ? q.explanation.length > 0 : q.explanation.length > 0)) {
+                totalAnswers += q.answers.length;
+                if (Object.keys(q.explanations).length > 0) {
                     withExplanations++;
                 }
                 if (q.correctAnswers.length > 1) {
@@ -541,23 +524,18 @@
                 questionDiv.className = 'question-preview';
                 
                 let html = `
-                    <h4>Question ${q.id}</h4>
+                    <h4>Question ${q.questionNumber}</h4>
                     <div class="question-text">${q.question}</div>
                 `;
                 
-                q.choices.forEach(choice => {
-                    const isCorrect = q.correctAnswers.includes(choice.id);
-                    const className = isCorrect ? 'answer correct' : 'answer';
-                    html += `<div class="${className}">${choice.id}. ${choice.text} ${isCorrect ? '✓' : ''}</div>`;
+                q.answers.forEach(a => {
+                    const className = a.isCorrect ? 'answer correct' : 'answer';
+                    html += `<div class="${className}">${a.id}. ${a.text} ${a.isCorrect ? '✓' : ''}</div>`;
                 });
                 
-                if (q.explanation) {
+                if (Object.keys(q.explanations).length > 0) {
                     html += '<div class="explanation">Explanation: ';
-                    if (Array.isArray(q.explanation)) {
-                        html += q.explanation.join(' | ');
-                    } else {
-                        html += q.explanation;
-                    }
+                    html += Object.values(q.explanations).join(' ');
                     html += '</div>';
                 }
                 
