@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Question Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1em;
+        }
+
+        .stats-bar {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .search-section {
+            padding: 30px 20px;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .search-button:hover {
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .search-button:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        .options-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .search-option input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .results-section {
+            padding: 0 20px 30px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .question-header {
+            display: flex;
+            align-items: start;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .question-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .question-text {
+            flex: 1;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, #ffd700 0%, #ffed4e 100%);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        .choices-container {
+            margin: 15px 0;
+        }
+
+        .choice-item {
+            padding: 10px 15px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .choice-item.correct {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            border-color: #4caf50;
+            font-weight: 600;
+            position: relative;
+            padding-right: 40px;
+        }
+
+        .choice-item.correct::after {
+            content: '✓';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #4caf50;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .choice-item.incorrect {
+            opacity: 0.6;
+        }
+
+        .answer-section {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .answer-label {
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 8px;
+        }
+
+        .correct-answer {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1b5e20;
+        }
+
+        .explanation {
+            margin-top: 15px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 10px;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .no-results-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .match-score {
+            display: inline-block;
+            background: #ffc107;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.5em;
+            }
+
+            .header p {
+                font-size: 1em;
+            }
+
+            .search-section {
+                padding: 20px 15px;
+            }
+
+            .results-section {
+                padding: 0 15px 20px;
+            }
+
+            .result-card {
+                padding: 15px;
+            }
+
+            .question-text {
+                font-size: 14px;
+            }
+
+            .stats-bar {
+                padding: 10px;
+            }
+
+            .stat-value {
+                font-size: 1.2em;
+            }
+        }
+
+        .help-text {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Quiz Question Search</h1>
+            <p>Find questions and their correct answers instantly</p>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalQuestions">0</div>
+                    <div class="stat-label">Questions</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="searchCount">0</div>
+                    <div class="stat-label">Searches</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="matchFound">0</div>
+                    <div class="stat-label">Matches</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Type any part of the question..."
+                    autocomplete="off"
+                >
+                <button class="search-button" onclick="searchQuestions()">Search</button>
+            </div>
+            
+            <div class="options-container">
+                <div class="search-option">
+                    <input type="checkbox" id="caseSensitive">
+                    <label for="caseSensitive">Case Sensitive</label>
+                </div>
+                <div class="search-option">
+                    <input type="checkbox" id="exactMatch">
+                    <label for="exactMatch">Exact Match</label>
+                </div>
+                <div class="search-option">
+                    <input type="checkbox" id="showAll" checked>
+                    <label for="showAll">Show All Matches</label>
+                </div>
+            </div>
+
+            <div class="help-text">
+                💡 Tip: Type any part of a question to find it. For example: "cornerstone skill" or "project managers"
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Searching...</p>
+        </div>
+
+        <div class="results-section" id="results">
+            <div class="no-results">
+                <div class="no-results-icon">🔍</div>
+                <p>Start typing to search for questions</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load the question bank
+        const questionBank = JSON.parse(localStorage.getItem('questionBank')) || [];
+        let searchCount = 0;
+        let matchCount = 0;
+
+        // Initialize the app
+        window.addEventListener('DOMContentLoaded', () => {
+            loadQuestionBank();
+            updateStats();
+            
+            // Add enter key support
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchQuestions();
+                }
+            });
+        });
+
+        function loadQuestionBank() {
+            // Since we can't directly load the JSON file, we'll embed it
+            const embeddedQuestions = [{"id":1,"question":"Which of the following is an input to the Develop Project Management Plan process?","choices":[{"id":"a","text":"The organization's processes and procedures"},{"id":"b","text":"The project charter"},{"id":"c","text":"The stakeholder register"},{"id":"d","text":"The enterprise environmental factors"}],"correctAnswers":["c"],"explanation":""},{"id":2,"question":"During the auction, you see an auctioneer who is your close friend. What should your next step be?","choices":[{"id":"a","text":"You will resign immediately from the tender process"},{"id":"b","text":"You will disclose this relationship to your manager"},{"id":"c","text":"You will pass on some confidential information to him"},{"id":"d","text":"You will try not to give him the contract to prove your integrity"}],"correctAnswers":["b"],"explanation":""},{"id":142,"question":"Performing integration is a cornerstone skill for all project managers; the following describe the three different levels of performing integration EXCEPT","choices":[{"id":"a","text":"Cognitive level"},{"id":"b","text":"Complexity level"},{"id":"c","text":"Context level"},{"id":"d","text":"Process level"}],"correctAnswers":["b"],"explanation":""}];
+            
+            // Store in questionBank variable
+            questionBank.push(...embeddedQuestions);
+            
+            // For demonstration, let's add a few more questions from the provided data
+            const additionalQuestions = [{"id":3,"question":"You are managing a project to build five bridges. The project consists of five sequential phases with each phase delivering one bridge.After the first phase of the project is complete, which process group of the second phase should follow?","choices":[{"id":"a","text":"Initiating"},{"id":"b","text":"Closing"},{"id":"c","text":"Planning"},{"id":"d","text":"Executing"}],"correctAnswers":["a"],"explanation":""},{"id":143,"question":"As part of the communications model, the sender is responsible for:","choices":[{"id":"a","text":"Decoding the medium correctly"},{"id":"b","text":"Presenting the information in the most favorable manner"},{"id":"c","text":"Confirming that the communication is correctly understood"},{"id":"d","text":"Ensuring that the receiver agrees with the message"}],"correctAnswers":["c"],"explanation":""}];
+            
+            questionBank.push(...additionalQuestions);
+        }
+
+        function updateStats() {
+            document.getElementById('totalQuestions').textContent = questionBank.length;
+            document.getElementById('searchCount').textContent = searchCount;
+            document.getElementById('matchFound').textContent = matchCount;
+        }
+
+        function searchQuestions() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            
+            if (!searchTerm) {
+                showNoResults('Please enter a search term');
+                return;
+            }
+
+            searchCount++;
+            showLoading(true);
+            
+            setTimeout(() => {
+                const results = findMatchingQuestions(searchTerm);
+                displayResults(results, searchTerm);
+                showLoading(false);
+                updateStats();
+            }, 300);
+        }
+
+        function findMatchingQuestions(searchTerm) {
+            const caseSensitive = document.getElementById('caseSensitive').checked;
+            const exactMatch = document.getElementById('exactMatch').checked;
+            const showAll = document.getElementById('showAll').checked;
+            
+            let searchQuery = caseSensitive ? searchTerm : searchTerm.toLowerCase();
+            let matches = [];
+
+            questionBank.forEach(question => {
+                let questionText = caseSensitive ? question.question : question.question.toLowerCase();
+                let matchScore = 0;
+
+                if (exactMatch) {
+                    if (questionText === searchQuery) {
+                        matchScore = 100;
+                    }
+                } else {
+                    if (questionText.includes(searchQuery)) {
+                        // Calculate match score based on how much of the search term matches
+                        const matchPercentage = (searchQuery.length / questionText.length) * 100;
+                        matchScore = Math.min(100, matchPercentage + 50); // Boost for containing the term
+                    }
+                }
+
+                if (matchScore > 0) {
+                    matches.push({
+                        ...question,
+                        matchScore: Math.round(matchScore)
+                    });
+                }
+            });
+
+            // Sort by match score
+            matches.sort((a, b) => b.matchScore - a.matchScore);
+
+            // Return top matches or all based on setting
+            if (!showAll && matches.length > 5) {
+                matches = matches.slice(0, 5);
+            }
+
+            matchCount += matches.length;
+            return matches;
+        }
+
+        function displayResults(results, searchTerm) {
+            const resultsContainer = document.getElementById('results');
+            
+            if (results.length === 0) {
+                showNoResults('No matching questions found');
+                return;
+            }
+
+            let html = '';
+            results.forEach(result => {
+                const correctAnswerTexts = result.correctAnswers.map(answerId => {
+                    const choice = result.choices.find(c => c.id === answerId);
+                    return `${answerId}. ${choice.text}`;
+                });
+
+                html += `
+                    <div class="result-card">
+                        <div class="question-header">
+                            <span class="question-number">Q${result.id}</span>
+                            <div class="question-text">
+                                ${highlightSearchTerm(result.question, searchTerm)}
+                                <span class="match-score">${result.matchScore}% match</span>
+                            </div>
+                        </div>
+                        
+                        <div class="choices-container">
+                            ${result.choices.map(choice => `
+                                <div class="choice-item ${result.correctAnswers.includes(choice.id) ? 'correct' : 'incorrect'}">
+                                    <strong>${choice.id}.</strong> ${choice.text}
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="answer-section">
+                            <div class="answer-label">Correct Answer${result.correctAnswers.length > 1 ? 's' : ''}:</div>
+                            <div class="correct-answer">
+                                ${correctAnswerTexts.map(text => `<div>✅ ${text}</div>`).join('')}
+                            </div>
+                        </div>
+                        
+                        ${result.explanation ? `
+                            <div class="explanation">
+                                <strong>Explanation:</strong> ${result.explanation}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            resultsContainer.innerHTML = html;
+        }
+
+        function highlightSearchTerm(text, searchTerm) {
+            if (!searchTerm) return text;
+            
+            const caseSensitive = document.getElementById('caseSensitive').checked;
+            const regex = new RegExp(`(${escapeRegex(searchTerm)})`, caseSensitive ? 'g' : 'gi');
+            
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function showNoResults(message) {
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = `
+                <div class="no-results">
+                    <div class="no-results-icon">😔</div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Add sample questions for immediate testing
+        window.addEventListener('load', () => {
+            // Load the full question bank from the provided JSON
+            const fullQuestionBank = [{"id":1,"question":"Which of the following is an input to the Develop Project Management Plan process?","choices":[{"id":"a","text":"The organization's processes and procedures"},{"id":"b","text":"The project charter"},{"id":"c","text":"The stakeholder register"},{"id":"d","text":"The enterprise environmental factors"}],"correctAnswers":["c"],"explanation":""},{"id":142,"question":"Performing integration is a cornerstone skill for all project managers; the following describe the three different levels of performing integration EXCEPT","choices":[{"id":"a","text":"Cognitive level"},{"id":"b","text":"Complexity level"},{"id":"c","text":"Context level"},{"id":"d","text":"Process level"}],"correctAnswers":["b"],"explanation":""},{"id":143,"question":"As part of the communications model, the sender is responsible for:","choices":[{"id":"a","text":"Decoding the medium correctly"},{"id":"b","text":"Presenting the information in the most favorable manner"},{"id":"c","text":"Confirming that the communication is correctly understood"},{"id":"d","text":"Ensuring that the receiver agrees with the message"}],"correctAnswers":["c"],"explanation":""}];
+            
+            // Clear and reload
+            questionBank.length = 0;
+            questionBank.push(...fullQuestionBank);
+            updateStats();
+        });
+    </script>
+</body>
+</html>
