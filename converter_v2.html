@@ -376,35 +376,17 @@
             }
 
             try {
-                const result = parseMarkdownToQuestions(markdownContent);
-                parsedQuestions = result.questions;
+                parsedQuestions = parseMarkdownToQuestions(markdownContent);
                 
                 if (parsedQuestions.length === 0) {
                     showAlert('No questions found in the provided content!', 'error');
                     return;
                 }
 
-                // Show parsing results
-                let message = `Successfully parsed ${parsedQuestions.length} questions!`;
-                
-                if (result.errors.length > 0) {
-                    message += ` (${result.errors.length} issues found - check console for details)`;
-                    console.warn('Parsing issues:', result.errors);
-                    
-                    // Display errors in a formatted way
-                    const errorSummary = result.errors.map(e => 
-                        `Question ${e.questionNumber}: ${e.message}`
-                    ).join('\n');
-                    console.log('Detailed parsing issues:\n' + errorSummary);
-                }
-
                 updateStats();
                 displayPreview();
                 enableButtons();
-                showAlert(message, result.errors.length > 0 ? 'error' : 'success');
-                
-                // Display parsing report
-                displayParsingReport(result);
+                showAlert(`Successfully parsed ${parsedQuestions.length} questions!`, 'success');
             } catch (error) {
                 showAlert(`Error parsing content: ${error.message}`, 'error');
                 console.error('Parsing error:', error);
@@ -414,226 +396,115 @@
         function parseMarkdownToQuestions(markdown) {
             const lines = markdown.split('\n');
             const questions = [];
-            const errors = [];
             let currentQuestion = null;
-            let currentQuestionText = [];
             let currentChoices = [];
-            let explanations = [];
-            let isCollectingQuestion = false;
             let lastCorrectAnswer = null;
+            let explanations = [];
             
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
                 
-                // Check if it's a question start (starts with # followed by number and .)
+                // Check if it's a question (starts with # followed by number and .)
                 if (line.match(/^#\s+\d+\./)) {
                     // Save previous question if exists
                     if (currentQuestion) {
-                        // Validate and save the previous question
-                        const validation = validateAndSaveQuestion(
-                            currentQuestion, 
-                            currentQuestionText, 
-                            currentChoices, 
-                            explanations, 
-                            questions, 
-                            errors
-                        );
-                        if (!validation.success) {
-                            errors.push({
-                                questionNumber: currentQuestion.id,
-                                message: validation.error
-                            });
+                        currentQuestion.choices = currentChoices;
+                        // Set explanation as array or single string based on count
+                        if (explanations.length === 0) {
+                            currentQuestion.explanation = "";
+                        } else if (explanations.length === 1) {
+                            currentQuestion.explanation = explanations[0];
+                        } else {
+                            currentQuestion.explanation = explanations;
                         }
+                        questions.push(currentQuestion);
                     }
                     
-                    // Extract question number and initial text
+                    // Extract question number and text
                     const match = line.match(/^#\s+(\d+)\.\s*(.+)/);
                     if (match) {
                         const [, number, text] = match;
                         
+                        // Remove bilingual parts in parentheses for cleaner question text
+                        let cleanText = text.trim();
+                        // Check if the entire text is bilingual format
+                        const bilingualMatch = text.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
+                        if (bilingualMatch) {
+                            // Use the English part (first part before parentheses)
+                            cleanText = bilingualMatch[1].trim();
+                        }
+                        
                         currentQuestion = {
                             id: parseInt(number),
-                            question: "",
+                            question: cleanText,
                             choices: [],
                             correctAnswers: [],
                             explanation: ""
                         };
                         
-                        currentQuestionText = [text.trim()];
                         currentChoices = [];
                         explanations = [];
-                        isCollectingQuestion = true;
                         lastCorrectAnswer = null;
                     }
                 }
-                // Check if it's the first answer (- a.) which ends the question text
-                else if (line.match(/^-\s+a\./)) {
-                    isCollectingQuestion = false;
-                    
-                    // Process this answer line
-                    processAnswerLine(line, currentQuestion, currentChoices, explanations);
-                    if (line.includes('[CORRECT]')) {
-                        lastCorrectAnswer = 'a';
-                    } else {
-                        lastCorrectAnswer = null;
+                // Check if it's an answer (starts with - followed by letter and .)
+                else if (line.match(/^-\s+[a-d]\./)) {
+                    const match = line.match(/^-\s+([a-d])\.\s*(.+)/);
+                    if (match && currentQuestion) {
+                        const [, letter, text] = match;
+                        const isCorrect = text.includes('[CORRECT]');
+                        let cleanText = text.replace(/\s*\[CORRECT\]\s*$/, '').trim();
+                        
+                        // Remove bilingual parts in parentheses for cleaner choice text
+                        const bilingualMatch = cleanText.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
+                        if (bilingualMatch) {
+                            // Use the English part (first part before parentheses)
+                            cleanText = bilingualMatch[1].trim();
+                        }
+                        
+                        const choice = {
+                            id: letter,
+                            text: cleanText
+                        };
+                        
+                        currentChoices.push(choice);
+                        
+                        if (isCorrect) {
+                            currentQuestion.correctAnswers.push(letter);
+                            lastCorrectAnswer = letter;
+                        }
                     }
                 }
-                // Check if it's another answer (b, c, or d)
-                else if (line.match(/^-\s+[bcd]\./)) {
-                    const letter = line.match(/^-\s+([bcd])\./)[1];
-                    processAnswerLine(line, currentQuestion, currentChoices, explanations);
-                    if (line.includes('[CORRECT]')) {
-                        lastCorrectAnswer = letter;
-                    } else {
-                        lastCorrectAnswer = null;
-                    }
-                }
-                // If we're collecting question text (before first answer)
-                else if (isCollectingQuestion && currentQuestion) {
-                    if (line) {
-                        currentQuestionText.push(line);
-                    }
-                }
-                // Check if it's an explanation (line after correct answer)
+                // Check if it's an explanation (line after correct answer, not starting with -, #, or being empty)
                 else if (lastCorrectAnswer && line && !line.startsWith('-') && !line.startsWith('#')) {
-                    // Clean and add explanation
-                    let cleanExplanation = line.trim();
-                    const bilingualMatch = line.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
-                    if (bilingualMatch) {
-                        cleanExplanation = bilingualMatch[1].trim();
+                    if (currentQuestion) {
+                        // Remove bilingual parts if present
+                        let cleanExplanation = line.trim();
+                        const bilingualMatch = line.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
+                        if (bilingualMatch) {
+                            cleanExplanation = bilingualMatch[1].trim();
+                        }
+                        explanations.push(cleanExplanation);
+                        lastCorrectAnswer = null; // Reset after capturing explanation
                     }
-                    explanations.push(cleanExplanation);
-                    lastCorrectAnswer = null;
                 }
             }
             
             // Don't forget the last question
             if (currentQuestion) {
-                const validation = validateAndSaveQuestion(
-                    currentQuestion, 
-                    currentQuestionText, 
-                    currentChoices, 
-                    explanations, 
-                    questions, 
-                    errors
-                );
-                if (!validation.success) {
-                    errors.push({
-                        questionNumber: currentQuestion.id,
-                        message: validation.error
-                    });
+                currentQuestion.choices = currentChoices;
+                // Set explanation as array or single string based on count
+                if (explanations.length === 0) {
+                    currentQuestion.explanation = "";
+                } else if (explanations.length === 1) {
+                    currentQuestion.explanation = explanations[0];
+                } else {
+                    currentQuestion.explanation = explanations;
                 }
+                questions.push(currentQuestion);
             }
             
-            return { questions, errors };
-        }
-
-        function processAnswerLine(line, currentQuestion, currentChoices, explanations) {
-            const match = line.match(/^-\s+([a-d])\.\s*(.+)/);
-            if (match && currentQuestion) {
-                const [, letter, text] = match;
-                const isCorrect = text.includes('[CORRECT]');
-                let cleanText = text.replace(/\s*\[CORRECT\]\s*$/, '').trim();
-                
-                // Remove bilingual parts in parentheses for cleaner choice text
-                const bilingualMatch = cleanText.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
-                if (bilingualMatch) {
-                    cleanText = bilingualMatch[1].trim();
-                }
-                
-                const choice = {
-                    id: letter,
-                    text: cleanText
-                };
-                
-                currentChoices.push(choice);
-                
-                if (isCorrect) {
-                    currentQuestion.correctAnswers.push(letter);
-                }
-            }
-        }
-
-        function validateAndSaveQuestion(currentQuestion, questionText, choices, explanations, questions, errors) {
-            // Combine multi-line question text
-            let fullQuestion = questionText.join(' ').trim();
-            
-            // Clean bilingual text
-            const bilingualMatch = fullQuestion.match(/(.+?)\s*\(\s*(.+?)\s*\)$/);
-            if (bilingualMatch) {
-                fullQuestion = bilingualMatch[1].trim();
-            }
-            
-            currentQuestion.question = fullQuestion;
-            currentQuestion.choices = choices;
-            
-            // Set explanation
-            if (explanations.length === 0) {
-                currentQuestion.explanation = "";
-            } else if (explanations.length === 1) {
-                currentQuestion.explanation = explanations[0];
-            } else {
-                currentQuestion.explanation = explanations;
-            }
-            
-            // Validate the question
-            if (!currentQuestion.question) {
-                return { success: false, error: "Empty question text" };
-            }
-            
-            if (choices.length !== 4) {
-                return { success: false, error: `Expected 4 choices, found ${choices.length}` };
-            }
-            
-            // Check if all required answer letters are present
-            const expectedLetters = ['a', 'b', 'c', 'd'];
-            const foundLetters = choices.map(c => c.id);
-            const missingLetters = expectedLetters.filter(l => !foundLetters.includes(l));
-            
-            if (missingLetters.length > 0) {
-                return { success: false, error: `Missing answer choices: ${missingLetters.join(', ')}` };
-            }
-            
-            if (currentQuestion.correctAnswers.length === 0) {
-                return { success: false, error: "No correct answer marked with [CORRECT]" };
-            }
-            
-            questions.push(currentQuestion);
-            return { success: true };
-        }
-
-        function displayParsingReport(result) {
-            if (result.errors.length === 0) return;
-            
-            // Add a parsing report section
-            const existingReport = document.getElementById('parsingReport');
-            if (existingReport) {
-                existingReport.remove();
-            }
-            
-            const reportDiv = document.createElement('div');
-            reportDiv.id = 'parsingReport';
-            reportDiv.style.cssText = `
-                margin: 20px 0;
-                padding: 15px;
-                background: #fff3cd;
-                border: 1px solid #ffc107;
-                border-radius: 10px;
-            `;
-            
-            let reportHTML = '<h3 style="color: #856404; margin-bottom: 10px;">⚠️ Parsing Report</h3>';
-            reportHTML += '<p style="color: #856404;">The following issues were found during parsing:</p>';
-            reportHTML += '<ul style="color: #856404; margin-top: 10px;">';
-            
-            result.errors.forEach(error => {
-                reportHTML += `<li>Question ${error.questionNumber}: ${error.message}</li>`;
-            });
-            
-            reportHTML += '</ul>';
-            reportDiv.innerHTML = reportHTML;
-            
-            const statsElement = document.getElementById('stats');
-            statsElement.parentNode.insertBefore(reportDiv, statsElement.nextSibling);
+            return questions;
         }
 
         function updateStats() {
@@ -749,16 +620,12 @@
         // Load sample data for testing
         window.addEventListener('DOMContentLoaded', () => {
             const sampleData = `# 1. Which of the following is an input to the Develop Project Management Plan process?
-This is a continuation of the question text.
-It can span multiple lines.
 - a. The organization's processes and procedures
 - b. The project charter
 - c. The stakeholder register [CORRECT]
 - d. The enterprise environmental factors
 
-# 2. During the auction, you see an auctioneer who is your close friend. 
-What should your next step be?
-This question also has multiple lines.
+# 2. During the auction, you see an auctioneer who is your close friend. What should your next step be?
 - a. You will resign immediately from the tender process
 - b. You will disclose this relationship to your manager [CORRECT]
 This maintains transparency and ethical standards
